@@ -1,0 +1,36 @@
+# macOS
+.DS_Store
+
+# environment / secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# dependencies
+node_modules/
+
+# Expo / React Native
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+*.tsbuildinfo
+
+# Native signing material
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+
+# debug/logs
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.log
+
+# editors
+.vscode/
+.idea/
