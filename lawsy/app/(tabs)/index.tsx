@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native
 
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { TabSwipeContainer } from '../../components/navigation/TabSwipeContainer';
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
 import { Colors } from '../../constants/colors';
@@ -32,8 +33,9 @@ export default function DiscoverScreen() {
   }, [activeCategory, query]);
 
   return (
-    <Screen>
-      <View style={styles.headerRow}>
+    <TabSwipeContainer>
+      <Screen>
+        <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
           <Text variant="titleXl">Lawsy</Text>
           <Text color={Colors.textSecondary}>Class Action Lawsuit Finder</Text>
@@ -43,7 +45,7 @@ export default function DiscoverScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.searchContainer}>
+        <View style={styles.searchContainer}>
         <Search color={Colors.textMuted} size={18} />
         <TextInput
           onChangeText={setQuery}
@@ -54,37 +56,37 @@ export default function DiscoverScreen() {
         />
       </View>
 
-      <ScrollView
-        horizontal
-        contentContainerStyle={styles.chipRow}
-        showsHorizontalScrollIndicator={false}
-      >
-        {categories.map((category) => {
-          const isActive = activeCategory === category;
-          return (
-            <Pressable
-              key={category}
-              onPress={() => setActiveCategory(category)}
-              style={[styles.chip, isActive ? styles.chipActive : styles.chipInactive]}
-            >
-              <Text
-                variant="caption"
-                color={isActive ? Colors.white : '#334155'}
-                style={styles.chipText}
+        <ScrollView
+          horizontal
+          contentContainerStyle={styles.chipRow}
+          showsHorizontalScrollIndicator={false}
+        >
+          {categories.map((category) => {
+            const isActive = activeCategory === category;
+            return (
+              <Pressable
+                key={category}
+                onPress={() => setActiveCategory(category)}
+                style={[styles.chip, isActive ? styles.chipActive : styles.chipInactive]}
               >
-                {category}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+                <Text
+                  variant="caption"
+                  color={isActive ? Colors.white : '#334155'}
+                  style={styles.chipText}
+                >
+                  {category}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
 
-      <View style={styles.caseList}>
-        {filteredCases.map((item) => {
-          const isSaved = savedCaseIds.includes(item.id);
+        <View style={styles.caseList}>
+          {filteredCases.map((item) => {
+            const isSaved = savedCaseIds.includes(item.id);
 
-          return (
-            <Card key={item.id}>
+            return (
+              <Card key={item.id}>
               <View style={styles.caseHeader}>
                 <View style={styles.logoCircle}>
                   <Text variant="label" color={Colors.primary}>
@@ -125,18 +127,19 @@ export default function DiscoverScreen() {
               <Link href={`/eligibility/${item.id}`} asChild>
                 <Button label="Check Eligibility" />
               </Link>
-            </Card>
-          );
-        })}
+              </Card>
+            );
+          })}
 
-        {!filteredCases.length ? (
-          <Card>
-            <Text variant="sectionTitle">No matching cases</Text>
-            <Text color={Colors.textSecondary}>Try another category or search term.</Text>
-          </Card>
-        ) : null}
-      </View>
-    </Screen>
+          {!filteredCases.length ? (
+            <Card>
+              <Text variant="sectionTitle">No matching cases</Text>
+              <Text color={Colors.textSecondary}>Try another category or search term.</Text>
+            </Card>
+          ) : null}
+        </View>
+      </Screen>
+    </TabSwipeContainer>
   );
 }
 

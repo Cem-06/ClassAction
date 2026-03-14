@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { TabSwipeContainer } from '../../components/navigation/TabSwipeContainer';
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
 import { Colors } from '../../constants/colors';
@@ -15,48 +16,50 @@ export default function SavedScreen() {
   const savedCases = caseRecords.filter((item) => savedCaseIds.includes(item.id));
 
   return (
-    <Screen>
-      <Text variant="title">Saved</Text>
+    <TabSwipeContainer>
+      <Screen>
+        <Text variant="title">Saved</Text>
 
-      {!savedCases.length ? (
-        <Card>
-          <View style={styles.emptyIcon}>
-            <BookmarkCheck color={Colors.textMuted} size={20} />
-          </View>
-          <Text variant="sectionTitle">No saved cases yet</Text>
-          <Text color={Colors.textSecondary}>
-            Bookmark cases on Home and they will show up here.
-          </Text>
-          <Link href="/(tabs)" asChild>
-            <Button label="Browse Cases" />
-          </Link>
-        </Card>
-      ) : null}
+        {!savedCases.length ? (
+          <Card>
+            <View style={styles.emptyIcon}>
+              <BookmarkCheck color={Colors.textMuted} size={20} />
+            </View>
+            <Text variant="sectionTitle">No saved cases yet</Text>
+            <Text color={Colors.textSecondary}>
+              Bookmark cases on Home and they will show up here.
+            </Text>
+            <Link href="/(tabs)" asChild>
+              <Button label="Browse Cases" />
+            </Link>
+          </Card>
+        ) : null}
 
-      {savedCases.map((item) => (
-        <Card key={item.id}>
-          <View style={styles.caseHeader}>
-            <View style={styles.logoCircle}>
-              <Text variant="label" color={Colors.primary}>
-                {item.company[0]}
-              </Text>
+        {savedCases.map((item) => (
+          <Card key={item.id}>
+            <View style={styles.caseHeader}>
+              <View style={styles.logoCircle}>
+                <Text variant="label" color={Colors.primary}>
+                  {item.company[0]}
+                </Text>
+              </View>
+              <View style={styles.caseCopy}>
+                <Link href={`/case/${item.slug}`} asChild>
+                  <Pressable>
+                    <Text variant="sectionTitle">{item.title}</Text>
+                  </Pressable>
+                </Link>
+                <Text color={Colors.textSecondary}>{item.description}</Text>
+                <Text variant="caption" color="#92400E">
+                  Deadline {item.deadlineLabel}
+                </Text>
+              </View>
             </View>
-            <View style={styles.caseCopy}>
-              <Link href={`/case/${item.slug}`} asChild>
-                <Pressable>
-                  <Text variant="sectionTitle">{item.title}</Text>
-                </Pressable>
-              </Link>
-              <Text color={Colors.textSecondary}>{item.description}</Text>
-              <Text variant="caption" color="#92400E">
-                Deadline {item.deadlineLabel}
-              </Text>
-            </View>
-          </View>
-          <Button label="Remove from Saved" onPress={() => toggleSaved(item.id)} variant="secondary" />
-        </Card>
-      ))}
-    </Screen>
+            <Button label="Remove from Saved" onPress={() => toggleSaved(item.id)} variant="secondary" />
+          </Card>
+        ))}
+      </Screen>
+    </TabSwipeContainer>
   );
 }
 

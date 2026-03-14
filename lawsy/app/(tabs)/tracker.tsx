@@ -1,6 +1,7 @@
 import { Link } from 'expo-router';
 
 import { Card } from '../../components/ui/Card';
+import { TabSwipeContainer } from '../../components/navigation/TabSwipeContainer';
 import { Screen } from '../../components/ui/Screen';
 import { Text } from '../../components/ui/Text';
 import { Colors } from '../../constants/colors';
@@ -30,36 +31,38 @@ export default function TrackerScreen() {
     .sort((a, b) => a.deadlineIso.localeCompare(b.deadlineIso));
 
   return (
-    <Screen>
-      <Text variant="title">Tracker</Text>
+    <TabSwipeContainer>
+      <Screen>
+        <Text variant="title">Tracker</Text>
 
-      {!trackedCases.length ? (
-        <Card>
-          <Text variant="sectionTitle">No tracked cases yet</Text>
-          <Text color={Colors.textSecondary}>
-            Save a case first, then run eligibility checks to track progress here.
-          </Text>
-        </Card>
-      ) : null}
-
-      {trackedCases.map((item) => {
-        const status = getStatusLabel(eligibilityByCaseId[item.id]);
-
-        return (
-          <Card key={item.id}>
-            <Text variant="sectionTitle">{item.title}</Text>
-            <Text color={Colors.textSecondary}>Deadline: {item.deadlineLabel}</Text>
-            <Text variant="label" color={status.color}>
-              Eligibility: {status.label}
+        {!trackedCases.length ? (
+          <Card>
+            <Text variant="sectionTitle">No tracked cases yet</Text>
+            <Text color={Colors.textSecondary}>
+              Save a case first, then run eligibility checks to track progress here.
             </Text>
-            <Link href={`/eligibility/${item.id}`}>
-              <Text variant="label" color={Colors.primary}>
-                Update Eligibility
-              </Text>
-            </Link>
           </Card>
-        );
-      })}
-    </Screen>
+        ) : null}
+
+        {trackedCases.map((item) => {
+          const status = getStatusLabel(eligibilityByCaseId[item.id]);
+
+          return (
+            <Card key={item.id}>
+              <Text variant="sectionTitle">{item.title}</Text>
+              <Text color={Colors.textSecondary}>Deadline: {item.deadlineLabel}</Text>
+              <Text variant="label" color={status.color}>
+                Eligibility: {status.label}
+              </Text>
+              <Link href={`/eligibility/${item.id}`}>
+                <Text variant="label" color={Colors.primary}>
+                  Update Eligibility
+                </Text>
+              </Link>
+            </Card>
+          );
+        })}
+      </Screen>
+    </TabSwipeContainer>
   );
 }

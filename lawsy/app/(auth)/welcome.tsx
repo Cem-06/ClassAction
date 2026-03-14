@@ -40,6 +40,13 @@ type SettlementItem = {
   max: number;
 };
 
+type IntentOption = {
+  id: 'money' | 'justice' | 'curiosity' | 'protection';
+  label: string;
+  description: string;
+  matchedCompanies: string[];
+};
+
 const totalSteps = 8;
 const stepKeys: OnboardingStepKey[] = [
   'hook',
@@ -51,7 +58,6 @@ const stepKeys: OnboardingStepKey[] = [
   'prepaywall',
   'paywall',
 ];
-const onboardingCompanies = ['Apple', 'Amazon', 'Facebook / Meta', 'Google', 'Uber', 'Netflix', 'Other'];
 const loadingMessages = [
   'Scanning active settlements...',
   'Checking eligibility signals...',
@@ -78,6 +84,33 @@ const allSettlements: SettlementItem[] = [
   { company: 'Amazon', name: 'Amazon Voice Data Settlement', payout: '$30 - $200', min: 30, max: 200 },
   { company: 'Uber', name: 'Rideshare Driver Fee Settlement', payout: '$20 - $180', min: 20, max: 180 },
   { company: 'Netflix', name: 'Streaming Billing Settlement', payout: '$20 - $120', min: 20, max: 120 },
+];
+
+const intentOptions: IntentOption[] = [
+  {
+    id: 'money',
+    label: 'Get my money back',
+    description: 'I want to recover every dollar I may qualify for.',
+    matchedCompanies: ['Apple', 'Facebook / Meta', 'Google', 'Amazon'],
+  },
+  {
+    id: 'justice',
+    label: 'Hold companies accountable',
+    description: 'I care about fairness and participating in valid claims.',
+    matchedCompanies: ['Facebook / Meta', 'Google', 'Other'],
+  },
+  {
+    id: 'curiosity',
+    label: 'See what I qualify for',
+    description: 'I am curious and want to explore available settlements.',
+    matchedCompanies: ['Apple', 'Amazon', 'Netflix'],
+  },
+  {
+    id: 'protection',
+    label: 'Protect my data and rights',
+    description: 'I want alerts when my privacy or consumer rights are affected.',
+    matchedCompanies: ['Facebook / Meta', 'Google', 'Uber', 'Other'],
+  },
 ];
 
 const plans = {
@@ -110,6 +143,7 @@ export default function WelcomeScreen() {
   const lastTrackedPlanRef = useRef<PlanType | null>(null);
 
   const [step, setStep] = useState(0);
+  const [selectedIntent, setSelectedIntent] = useState<IntentOption['id'] | null>(null);
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
   const [scanProgress, setScanProgress] = useState(0);
   const [scanMessageIndex, setScanMessageIndex] = useState(0);
@@ -158,6 +192,14 @@ export default function WelcomeScreen() {
 
   const resultMinValue = matchedSettlements.reduce((sum, settlement) => sum + settlement.min, 0);
   const resultMaxValue = matchedSettlements.reduce((sum, settlement) => sum + settlement.max, 0);
+  const midpointValue = Math.round((resultMinValue + resultMaxValue) / 2);
+  const withLawsySeries = [
+    Math.max(Math.round(midpointValue * 0.2), 60),
+    Math.max(Math.round(midpointValue * 0.55), 180),
+    Math.max(Math.round(midpointValue * 0.85), 320),
+  ];
+  const withoutLawsySeries = withLawsySeries.map((value) => Math.max(Math.round(value * 0.2), 18));
+  const graphMaxValue = Math.max(...withLawsySeries, ...withoutLawsySeries, 1);
   const stepProgress = ((step + 1) / totalSteps) * 100;
 
   useEffect(() => {
@@ -241,33 +283,29 @@ export default function WelcomeScreen() {
     };
   }, [step]);
 
-  const goBack = () => setStep((current) => Math.max(current - 1, 0));
   const goForward = (ctaLabel = 'Continue') => {
     sendEvent('onboarding_cta_tapped', { cta_label: ctaLabel });
     setStep((current) => Math.min(current + 1, totalSteps - 1));
   };
 
-  const toggleCompany = (company: string) => {
-    setSelectedCompanies((current) => {
-      const next = current.includes(company)
-        ? current.filter((item) => item !== company)
-        : [...current, company];
+  const selectIntent = (intentId: IntentOption['id']) => {
+    setSelectedIntent(intentId);
+    const intent = intentOptions.find((option) => option.id === intentId);
+    const matchedCompanies = intent?.matchedCompanies ?? [];
+    setSelectedCompanies(matchedCompanies);
 
-      void trackOnboardingEvent('personalization_updated', {
-        funnel_session_id: funnelSessionIdRef.current,
-        user_id: user?.id ?? null,
-        step_key: 'personalization',
-        step_index: 3,
-        plan_selected: selectedPlan,
-        selected_companies_count: next.length,
-      });
-
-      return next;
+    void trackOnboardingEvent('personalization_updated', {
+      funnel_session_id: funnelSessionIdRef.current,
+      user_id: user?.id ?? null,
+      step_key: 'personalization',
+      step_index: 3,
+      plan_selected: selectedPlan,
+      selected_companies_count: matchedCompanies.length,
     });
   };
 
-  const renderStepContent = () => {
-    if (step === 0) {
+  const renderStepContent = (activeStep: number) => {
+    if (activeStep === 0) {
       return (
         <>
           <View style={styles.heroVisualWrap}>
@@ -305,7 +343,7 @@ export default function WelcomeScreen() {
       );
     }
 
-    if (step === 1) {
+    if (activeStep === 1) {
       return (
         <>
           <View style={styles.header}>
@@ -354,7 +392,7 @@ export default function WelcomeScreen() {
       );
     }
 
-    if (step === 2) {
+    if (activeStep === 2) {
       return (
         <>
           <View style={styles.header}>
@@ -392,47 +430,46 @@ export default function WelcomeScreen() {
       );
     }
 
-    if (step === 3) {
+    if (activeStep === 3) {
       return (
         <>
           <View style={styles.header}>
-            <Text variant="titleXl">Let's find settlements for you</Text>
-            <Text color={Colors.textSecondary}>Which companies do you use? (Multi-select)</Text>
+            <Text variant="titleXl">What is your main goal with Lawsy?</Text>
+            <Text color={Colors.textSecondary}>Choose one so we can personalize your results.</Text>
           </View>
 
-          <View style={styles.chipsRow}>
-            {onboardingCompanies.map((company) => {
-              const selected = selectedCompanies.includes(company);
+          <View style={styles.intentList}>
+            {intentOptions.map((intent) => {
+              const selected = selectedIntent === intent.id;
+
               return (
                 <Pressable
-                  key={company}
-                  onPress={() => toggleCompany(company)}
-                  style={[styles.companyChip, selected ? styles.companyChipActive : styles.companyChipInactive]}
+                  key={intent.id}
+                  onPress={() => selectIntent(intent.id)}
+                  style={[styles.intentCard, selected ? styles.intentCardActive : styles.intentCardInactive]}
                 >
-                  <Text
-                    variant="caption"
-                    color={selected ? Colors.white : Colors.textPrimary}
-                    style={styles.chipText}
-                  >
-                    {company}
-                  </Text>
+                  <View style={styles.intentCardCopy}>
+                    <Text variant="label" color={selected ? '#064E3B' : Colors.textPrimary}>
+                      {intent.label}
+                    </Text>
+                    <Text variant="caption" color={selected ? '#065F46' : Colors.textSecondary}>
+                      {intent.description}
+                    </Text>
+                  </View>
+                  <View style={[styles.intentCheck, selected ? styles.intentCheckActive : null]}>
+                    {selected ? <Check color="#0F766E" size={14} /> : null}
+                  </View>
                 </Pressable>
               );
             })}
           </View>
 
-          <Card>
-            <Text variant="caption" color={Colors.textSecondary}>
-              Personalization improves match quality and makes results feel relevant.
-            </Text>
-          </Card>
-
-          <Button label="Continue" onPress={() => goForward('Continue')} />
+          <Button disabled={!selectedIntent} label="Continue" onPress={() => goForward('Continue')} />
         </>
       );
     }
 
-    if (step === 4) {
+    if (activeStep === 4) {
       return (
         <>
           <View style={styles.header}>
@@ -455,28 +492,86 @@ export default function WelcomeScreen() {
       );
     }
 
-    if (step === 5) {
+    if (activeStep === 5) {
       return (
         <>
           <View style={styles.header}>
-            <Text variant="titleXl">You may qualify for settlements</Text>
-            <Text color={Colors.textSecondary}>{matchedSettlements.length} potential settlements found</Text>
+            <Text variant="titleXl">See the difference with Lawsy</Text>
+            <Text color={Colors.textSecondary}>A quick visual of claimed vs missed money over time.</Text>
+          </View>
+
+          <View style={styles.outcomeCard}>
+            <View style={styles.outcomeHeader}>
+              <Text variant="sectionTitle" color="#E2E8F0">
+                Potential recovery trend
+              </Text>
+              <Text variant="caption" color="#99F6E4">
+                Based on your onboarding answers
+              </Text>
+            </View>
+
+            <View style={styles.outcomeLegend}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, styles.legendDotWithLawsy]} />
+                <Text variant="caption" color="#CCFBF1">
+                  With Lawsy
+                </Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, styles.legendDotWithoutLawsy]} />
+                <Text variant="caption" color="#FECACA">
+                  Without Lawsy
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.comparisonBars}>
+              {withLawsySeries.map((value, index) => {
+                const baseline = withoutLawsySeries[index];
+                return (
+                  <View key={`${value}-${index}`} style={styles.weekBlock}>
+                    <View style={styles.weekBars}>
+                      <View
+                        style={[
+                          styles.barWithoutLawsy,
+                          {
+                            height: `${Math.max((baseline / graphMaxValue) * 100, 8)}%`,
+                          },
+                        ]}
+                      />
+                      <View
+                        style={[
+                          styles.barWithLawsy,
+                          {
+                            height: `${Math.max((value / graphMaxValue) * 100, 8)}%`,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text variant="caption" color="#CBD5E1">
+                      Week {index + 1}
+                    </Text>
+                    <Text variant="caption" color="#E2E8F0">
+                      ${value}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+
+            <Text variant="caption" color="#A5F3FC">
+              Users who act early often recover more before deadlines pass.
+            </Text>
           </View>
 
           <Card>
             <Text variant="caption" color={Colors.textSecondary}>
-              Estimated value
+              Estimated value range
             </Text>
             <Text variant="titleXl">
               ${resultMinValue} - ${resultMaxValue}
             </Text>
-
-            <View style={styles.chartTrack}>
-              <View style={[styles.chartFill, { width: '78%' }]} />
-            </View>
-            <Text variant="caption" color={Colors.textSecondary}>
-              High match confidence based on your selected companies.
-            </Text>
+            <Text color={Colors.textSecondary}>{matchedSettlements.length} potential settlements found</Text>
           </Card>
 
           {matchedSettlements.map((settlement) => (
@@ -491,7 +586,7 @@ export default function WelcomeScreen() {
       );
     }
 
-    if (step === 6) {
+    if (activeStep === 6) {
       return (
         <>
           <View style={styles.header}>
@@ -740,7 +835,10 @@ export default function WelcomeScreen() {
   };
 
   return (
-    <Screen scroll>
+    <Screen scroll backgroundColor="#ECFDF5" contentContainerStyle={styles.screenContent}>
+      <View pointerEvents="none" style={styles.topWashBlob} />
+      <View pointerEvents="none" style={styles.bottomWashBlob} />
+
       <View style={styles.topRow}>
         <View style={styles.progressMeta}>
           <ShieldCheck color={Colors.primary} size={14} />
@@ -748,14 +846,13 @@ export default function WelcomeScreen() {
             Step {step + 1} / {totalSteps}
           </Text>
         </View>
-        {step > 0 && step < totalSteps - 1 ? <Button label="Back" onPress={goBack} variant="secondary" /> : null}
       </View>
 
       <View style={styles.stepProgressTrack}>
         <View style={[styles.stepProgressFill, { width: `${stepProgress}%` }]} />
       </View>
 
-      {renderStepContent()}
+      <View style={styles.stepContentWrap}>{renderStepContent(step)}</View>
 
       {step === totalSteps - 1 ? (
         <Card>
@@ -827,26 +924,43 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     width: '100%',
   },
-  chipText: {
-    fontWeight: '600',
-  },
-  chipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  companyChip: {
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  companyChipActive: {
-    backgroundColor: Colors.primary,
-  },
-  companyChipInactive: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+  intentCard: {
+    alignItems: 'center',
+    borderRadius: 16,
     borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  intentCardActive: {
+    backgroundColor: '#CCFBF1',
+    borderColor: '#5EEAD4',
+  },
+  intentCardCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  intentCardInactive: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#D1FAE5',
+  },
+  intentCheck: {
+    alignItems: 'center',
+    borderColor: '#A7F3D0',
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 24,
+    justifyContent: 'center',
+    width: 24,
+  },
+  intentCheckActive: {
+    backgroundColor: '#99F6E4',
+    borderColor: '#2DD4BF',
+  },
+  intentList: {
+    gap: 10,
   },
   compareLabel: {
     color: Colors.textPrimary,
@@ -872,15 +986,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   heroCard: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#BFDBFE',
+    backgroundColor: '#ECFDF5',
+    borderColor: '#A7F3D0',
     borderRadius: 20,
     borderWidth: 1,
     gap: 10,
     padding: 20,
   },
   heroGlow: {
-    backgroundColor: '#DBEAFE',
+    backgroundColor: '#99F6E4',
     borderRadius: 140,
     height: 140,
     opacity: 0.7,
@@ -890,8 +1004,8 @@ const styles = StyleSheet.create({
     width: 140,
   },
   heroStatPill: {
-    backgroundColor: Colors.surface,
-    borderColor: Colors.border,
+    backgroundColor: '#F0FDFA',
+    borderColor: '#CCFBF1',
     borderRadius: 12,
     borderWidth: 1,
     flex: 1,
@@ -913,6 +1027,68 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 6,
     justifyContent: 'center',
+  },
+  outcomeCard: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1E293B',
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 14,
+    padding: 16,
+  },
+  outcomeHeader: {
+    gap: 4,
+  },
+  outcomeLegend: {
+    flexDirection: 'row',
+    gap: 14,
+  },
+  legendItem: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  legendDot: {
+    borderRadius: 999,
+    height: 8,
+    width: 8,
+  },
+  legendDotWithLawsy: {
+    backgroundColor: '#2DD4BF',
+  },
+  legendDotWithoutLawsy: {
+    backgroundColor: '#F87171',
+  },
+  comparisonBars: {
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    gap: 14,
+    height: 152,
+    justifyContent: 'space-between',
+  },
+  weekBlock: {
+    alignItems: 'center',
+    flex: 1,
+    gap: 6,
+  },
+  weekBars: {
+    alignItems: 'flex-end',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 6,
+    width: '100%',
+  },
+  barWithLawsy: {
+    backgroundColor: '#2DD4BF',
+    borderRadius: 999,
+    flex: 1,
+    minHeight: 6,
+  },
+  barWithoutLawsy: {
+    backgroundColor: '#F87171',
+    borderRadius: 999,
+    flex: 1,
+    minHeight: 6,
   },
   neutralPill: {
     backgroundColor: Colors.border,
@@ -961,11 +1137,15 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   progressTrack: {
-    backgroundColor: '#DBEAFE',
+    backgroundColor: '#CCFBF1',
     borderRadius: 999,
     height: 10,
     overflow: 'hidden',
     width: '100%',
+  },
+  screenContent: {
+    overflow: 'hidden',
+    paddingTop: 18,
   },
   scanDot: {
     backgroundColor: '#BFDBFE',
@@ -997,15 +1177,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   stepProgressFill: {
-    backgroundColor: Colors.primary,
+    backgroundColor: '#0EA5A5',
     borderRadius: 999,
     height: 4,
   },
   stepProgressTrack: {
-    backgroundColor: Colors.border,
+    backgroundColor: '#99F6E4',
     borderRadius: 999,
     height: 4,
     overflow: 'hidden',
+  },
+  stepContentWrap: {
+    gap: 16,
   },
   tableHeader: {
     alignItems: 'center',
@@ -1021,9 +1204,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
+  topWashBlob: {
+    backgroundColor: '#99F6E4',
+    borderRadius: 220,
+    height: 220,
+    left: -100,
+    opacity: 0.25,
+    position: 'absolute',
+    top: -150,
+    width: 220,
+  },
   topRow: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  bottomWashBlob: {
+    backgroundColor: '#A7F3D0',
+    borderRadius: 260,
+    bottom: -190,
+    height: 260,
+    opacity: 0.2,
+    position: 'absolute',
+    right: -110,
+    width: 260,
   },
 });
