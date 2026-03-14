@@ -1,8 +1,15 @@
 import { usePathname, useRouter } from 'expo-router';
-import { PropsWithChildren, useCallback, useEffect, useMemo, useRef } from 'react';
+import { PropsWithChildren, useEffect, useMemo, useRef } from 'react';
 import { Animated, PanResponder, StyleSheet, useWindowDimensions } from 'react-native';
 
 const tabPaths = ['/(tabs)', '/(tabs)/saved', '/(tabs)/tracker', '/(tabs)/settings'] as const;
+
+type PendingEntryAnimation = {
+  entryOffset: number;
+  velocity: number;
+};
+
+let pendingEntryAnimation: PendingEntryAnimation | null = null;
 
 function normalizeTabPath(pathname: string): (typeof tabPaths)[number] {
   if (pathname.endsWith('/saved')) {
@@ -30,44 +37,32 @@ export function TabSwipeContainer({ children }: PropsWithChildren) {
 
   const normalizedPath = normalizeTabPath(pathname);
   const currentIndex = tabPaths.indexOf(normalizedPath);
-  const swipeTravel = Math.max(width * 0.45, 180);
+  const swipeTravel = Math.max(width * 0.85, 260);
   const swipeThreshold = Math.max(64, width * 0.2);
 
   useEffect(() => {
     isTransitioningRef.current = false;
     translateX.stopAnimation();
+
+    if (pendingEntryAnimation) {
+      const { entryOffset, velocity } = pendingEntryAnimation;
+      pendingEntryAnimation = null;
+
+      translateX.setValue(entryOffset);
+      Animated.spring(translateX, {
+        damping: 22,
+        mass: 0.9,
+        stiffness: 240,
+        velocity,
+        toValue: 0,
+        useNativeDriver: true,
+      }).start();
+
+      return;
+    }
+
     translateX.setValue(0);
   }, [normalizedPath, translateX]);
-
-  const navigateTo = useCallback(
-    (targetIndex: number, direction: 'forward' | 'back') => {
-      if (isTransitioningRef.current) {
-        return;
-      }
-
-      const targetPath = tabPaths[targetIndex];
-
-      if (!targetPath) {
-        return;
-      }
-
-      isTransitioningRef.current = true;
-      const exitOffset = direction === 'forward' ? -swipeTravel : swipeTravel;
-
-      Animated.spring(translateX, {
-        damping: 21,
-        mass: 0.85,
-        stiffness: 220,
-        toValue: exitOffset,
-        useNativeDriver: true,
-      }).start(() => {
-        translateX.setValue(0);
-        isTransitioningRef.current = false;
-        router.replace(targetPath);
-      });
-    },
-    [router, swipeTravel, translateX]
-  );
 
   const panResponder = useMemo(
     () =>
@@ -98,12 +93,24 @@ export function TabSwipeContainer({ children }: PropsWithChildren) {
           }
 
           if (gestureState.dx < -swipeThreshold && currentIndex < tabPaths.length - 1) {
-            navigateTo(currentIndex + 1, 'forward');
+            const targetPath = tabPaths[currentIndex + 1];
+            pendingEntryAnimation = {
+              entryOffset: width,
+              velocity: Math.max(1.4, Math.abs(gestureState.vx) * 2.2),
+            };
+            isTransitioningRef.current = true;
+            router.replace(targetPath);
             return;
           }
 
           if (gestureState.dx > swipeThreshold && currentIndex > 0) {
-            navigateTo(currentIndex - 1, 'back');
+            const targetPath = tabPaths[currentIndex - 1];
+            pendingEntryAnimation = {
+              entryOffset: -width,
+              velocity: Math.max(1.4, Math.abs(gestureState.vx) * 2.2),
+            };
+            isTransitioningRef.current = true;
+            router.replace(targetPath);
             return;
           }
 
@@ -129,7 +136,7 @@ export function TabSwipeContainer({ children }: PropsWithChildren) {
           }).start();
         },
       }),
-    [currentIndex, navigateTo, swipeThreshold, swipeTravel, translateX]
+    [currentIndex, router, swipeThreshold, swipeTravel, translateX, width]
   );
 
   return (
